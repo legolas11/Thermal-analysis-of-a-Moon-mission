@@ -35,3 +35,39 @@ T_E = (A_p*J_p/A_total + Q/(A_total*sigma*epsilon) + (A_s*J_s + A_a*J_a)/(A_tota
 
 disp('The balanced temperature (K) of the s/c surface near Earth is:')
 disp(T_E)
+
+% Steady state nodal calculations
+%% Define nodal plan
+np.name = {'Shell', 'Structure', 'Payload', 'Engine', 'Battery', 'SP'};
+n = length(np.name);
+np.h = ones(n); %Heat conductance from ith node to jth node, symmetric n*n matrix
+np.F = ones(n)./n; %view factor from ith node to jth node, symmetric n*n matrix, sumFij = 1
+np.epsilon = ones(n,1)*0.9; %emittance of nodes
+np.epsilonij = ones(n);
+for i = 1:n
+    for j = 1:n
+        np.epsilonij(i,j) = np.epsilon(i)*np.epsilon(j)/(np.epsilon(i)+np.epsilon(j)-np.epsilon(i)*np.epsilon(j));
+    end
+end
+np.alpha = ones(n,1);
+np.A = ones(n,1); %surface area of node i
+np.Aspace = ones(n,1); %effective area with unobstructed view of space
+np.Asolar = ones(n,1); %effective area with unobstructed view of space
+np.Aalbedo = ones(n,1); %effective area with unobstructed view of space
+np.Aplanetary = ones(n,1); %effective area with unobstructed view of space
+np.Qexternal = 100*ones(n,1);
+np.Q = zeros(n,1);
+np.T0 = 273*ones(n,1); 
+
+%% Set up linear equations system A*T = B
+A = zeros(n);
+B = zeros(n,1);
+for i = 1:n
+    for j = 1:n
+        A(i,j) = sum(np.h(i,:)) + 4*sigma*np.T0(i)^3*(np.Aspace(i)*np.epsilon(i)) + sum(np.A(i).*np.F(i,:)'.*np.epsilonij(i,:)')-sum(np.h(i,:)'+4*sigma*np.T0(:).^3.*np.A(i).*np.F(i,:)'.*np.epsilonij(i,:)');
+    end
+    B(i,1) = np.Qexternal(i) + np.Q(i) + 3*sigma*np.T0(i)^4*np.Aspace(i)*np.epsilon(i) + 3*sigma*sum((np.T0(i)^4-np.T0(:)'.^4)*np.A(i).*np.F(i,:).*np.epsilonij(i,:));
+
+end
+
+T = linsolve(A,B);
