@@ -38,36 +38,52 @@ disp(T_E)
 
 % Steady state nodal calculations
 %% Define nodal plan
-np.name = {'Shell', 'Structure', 'Payload', 'Engine', 'Battery', 'SP'};
+np.name = {'Shell', 'Structure', 'Payload', 'Engine', 'Battery', 'SP', 'PCB'};
 n = length(np.name);
-np.h = ones(n); %Heat conductance from ith node to jth node, symmetric n*n matrix
+hmatrix = readtable('TMM Spacecraftv2.1.xlsx','Sheet','hmatrix');
+np.h = table2array(hmatrix(:,2:end)); %Heat conductance from ith node to jth node, symmetric n*n matrix
 np.F = ones(n)./n; %view factor from ith node to jth node, symmetric n*n matrix, sumFij = 1
-np.epsilon = ones(n,1)*0.9; %emittance of nodes
+Nodalplan = readtable('TMM Spacecraftv2.1.xlsx','Sheet','Nodal plan');
+np.epsilon = Nodalplan.epsilon; %emittance of nodes
 np.epsilonij = ones(n);
 for i = 1:n
     for j = 1:n
         np.epsilonij(i,j) = np.epsilon(i)*np.epsilon(j)/(np.epsilon(i)+np.epsilon(j)-np.epsilon(i)*np.epsilon(j));
     end
 end
-np.alpha = ones(n,1);
-np.A = ones(n,1); %surface area of node i
-np.Aspace = ones(n,1); %effective area with unobstructed view of space
-np.Asolar = ones(n,1); %effective area with unobstructed view of space
-np.Aalbedo = ones(n,1); %effective area with unobstructed view of space
-np.Aplanetary = ones(n,1); %effective area with unobstructed view of space
-np.Qexternal = 100*ones(n,1);
-np.Q = zeros(n,1);
-np.T0 = 273*ones(n,1); 
+np.alpha = Nodalplan.alpha;
+np.A = Nodalplan.A; %surface area of node i
+np.Aspace = Nodalplan.Aspace; %effective area with unobstructed view of space
+np.Asolar = Nodalplan.Asolar; %effective area with unobstructed view of space
+np.Aalbedo = Nodalplan.Aalbedo; %effective area with unobstructed view of space
+np.Aplanetary = Nodalplan.Aplanetary; %effective area with unobstructed view of space
+np.Qexternal = Nodalplan.Qexternal;
+np.Q = Nodalplan.Qinternal_generated_;
+np.T0 = Nodalplan.T0; 
 
 %% Set up linear equations system A*T = B
 A = zeros(n);
 B = zeros(n,1);
-for i = 1:n
-    for j = 1:n
-        A(i,j) = sum(np.h(i,:)) + 4*sigma*np.T0(i)^3*(np.Aspace(i)*np.epsilon(i)) + sum(np.A(i).*np.F(i,:)'.*np.epsilonij(i,:)')-sum(np.h(i,:)'+4*sigma*np.T0(:).^3.*np.A(i).*np.F(i,:)'.*np.epsilonij(i,:)');
+
+for k = 1: 1
+    for i = 1:n
+        for j = 1:n
+            if i == j
+                A(i,j) = sum(np.h(i,:)) + 4*sigma*np.T0(i)^3*(np.Aspace(i)*np.epsilon(i)) + sum(np.A(i).*np.F(i,:)'.*np.epsilonij(i,:)')-np.h(i,j)'+4*sigma*np.T0(j).^3.*np.A(i).*np.F(i,j).*np.epsilonij(i,j);
+            else
+                A(i,j) = -np.h(i,j)'+4*sigma*np.T0(j).^3.*np.A(i).*np.F(i,j).*np.epsilonij(i,j);
+            end
+    
+        end
+        B(i,1) = np.Qexternal(i) + np.Q(i) + 3*sigma*np.T0(i)^4*np.Aspace(i)*np.epsilon(i) + 3*sigma*sum((np.T0(i)^4-np.T0(:)'.^4)*np.A(i).*np.F(i,:).*np.epsilonij(i,:));
+    
     end
-    B(i,1) = np.Qexternal(i) + np.Q(i) + 3*sigma*np.T0(i)^4*np.Aspace(i)*np.epsilon(i) + 3*sigma*sum((np.T0(i)^4-np.T0(:)'.^4)*np.A(i).*np.F(i,:).*np.epsilonij(i,:));
 
+    T = linsolve(A,B);
+    
+    if abs(sum(T-np.T0)) < 1
+        break
+    else
+        np.T0 = T;
+    end
 end
-
-T = linsolve(A,B);
