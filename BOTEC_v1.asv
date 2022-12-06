@@ -89,7 +89,7 @@ for k = 1: 10
     end
 end
 
-disp('The steady state temperature (K) of the components are')
+disp('The steady state temperature (Kof the components are')
 
 for i = 1: length(np.name)
     disp(np.name{i})
