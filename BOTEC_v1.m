@@ -58,8 +58,9 @@ np.Aspace = Nodalplan.Aspace; %effective area with unobstructed view of space
 np.Asolar = Nodalplan.Asolar; %effective area with unobstructed view of space
 np.Aalbedo = Nodalplan.Aalbedo; %effective area with unobstructed view of space
 np.Aplanetary = Nodalplan.Aplanetary; %effective area with unobstructed view of space
-np.Qexternal = Nodalplan.Qexternal;
-np.Q = Nodalplan.Qinternal_generated_;
+np.Qexternal = Nodalplan.Qexternal_Earth_eclipse;
+np.heaters = [50,0,50,100,100,0,0]';
+np.Q = Nodalplan.Qinternal_generated_+np.heaters;
 np.T0 = Nodalplan.T0; 
 
 %% Set up linear equations system A*T = B
